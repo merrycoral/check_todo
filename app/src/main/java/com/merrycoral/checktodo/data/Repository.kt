@@ -2,6 +2,7 @@ package com.merrycoral.checktodo.data
 
 import android.content.Context
 import androidx.glance.appwidget.updateAll
+import androidx.room.withTransaction
 import com.merrycoral.checktodo.schedule.AlarmScheduler
 import com.merrycoral.checktodo.schedule.NotificationHelper
 import com.merrycoral.checktodo.widget.TodoWidget
@@ -79,6 +80,39 @@ class Repository(
     suspend fun rescheduleAll() {
         db.taskDao().getAll().forEach(scheduler::schedule)
         refreshWidgets()
+    }
+
+    /** 모든 데이터를 한 시점의 스냅샷으로 JSON 문자열로 만든다. */
+    suspend fun exportBackup(): String {
+        val snapshot = db.withTransaction {
+            BackupSnapshot(
+                categories = db.categoryDao().getAll(),
+                tasks = db.taskDao().getAll(),
+                logs = db.logDao().getAll(),
+            )
+        }
+        return BackupCodec.encode(snapshot, System.currentTimeMillis())
+    }
+
+    /**
+     * 현재 데이터를 모두 지우고 [snapshot] 으로 교체한다(한 트랜잭션, 실패 시 기존 데이터 유지).
+     * 이전 할 일의 알람·알림은 해제하고, 새 데이터 기준으로 알람과 위젯을 다시 맞춘다.
+     */
+    suspend fun restoreBackup(snapshot: BackupSnapshot) {
+        val previousTasks = db.taskDao().getAll()
+        db.withTransaction {
+            db.logDao().deleteAll()
+            db.taskDao().deleteAll()
+            db.categoryDao().deleteAll()
+            db.categoryDao().insertAll(snapshot.categories)
+            db.taskDao().insertAll(snapshot.tasks)
+            db.logDao().insertAll(snapshot.logs)
+        }
+        previousTasks.forEach {
+            scheduler.cancel(it.id)
+            NotificationHelper.cancel(context, it.id)
+        }
+        rescheduleAll()
     }
 
     /** 알람이 울렸을 때: 다음 회차를 예약하고, 아직 처리하지 않았다면 알림을 띄운다. */

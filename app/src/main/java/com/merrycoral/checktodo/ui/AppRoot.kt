@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -42,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import java.time.LocalDate
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
@@ -55,6 +57,8 @@ fun AppRoot(viewModel: MainViewModel) {
     val today by viewModel.today.collectAsStateWithLifecycle()
     val exactAlarmAllowed by viewModel.exactAlarmAllowed.collectAsStateWithLifecycle()
     val notificationsAllowed by viewModel.notificationsAllowed.collectAsStateWithLifecycle()
+    val backupMessage by viewModel.backupMessage.collectAsStateWithLifecycle()
+    val pendingRestore by viewModel.pendingRestore.collectAsStateWithLifecycle()
 
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var editorOpen by rememberSaveable { mutableStateOf(false) }
@@ -65,6 +69,13 @@ fun AppRoot(viewModel: MainViewModel) {
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         viewModel.onResume()
     }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) viewModel.exportBackup(uri)
+    }
+    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.prepareRestore(uri)
+    }
+
     LaunchedEffect(Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -108,6 +119,12 @@ fun AppRoot(viewModel: MainViewModel) {
                     onClick = { tab = 1 },
                     icon = { Icon(Icons.Default.Edit, contentDescription = null) },
                     label = { Text("할 일 관리") },
+                )
+                NavigationBarItem(
+                    selected = tab == 2,
+                    onClick = { tab = 2 },
+                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                    label = { Text("설정") },
                 )
             }
         },
@@ -155,6 +172,11 @@ fun AppRoot(viewModel: MainViewModel) {
                     onSkip = viewModel::skip,
                     onUndo = viewModel::undo,
                 )
+                2 -> SettingsScreen(
+                    backupMessage = backupMessage,
+                    onExport = { exportLauncher.launch("check_todo_backup_${LocalDate.now()}.json") },
+                    onRestore = { restoreLauncher.launch(arrayOf("*/*")) },
+                )
                 else -> TaskListScreen(
                     rows = taskRows,
                     onEdit = {
@@ -168,6 +190,13 @@ fun AppRoot(viewModel: MainViewModel) {
         }
     }
 
+    pendingRestore?.let { snapshot ->
+        RestoreConfirmDialog(
+            snapshot = snapshot,
+            onConfirm = viewModel::confirmRestore,
+            onDismiss = viewModel::cancelRestore,
+        )
+    }
     if (categoryColorsOpen) {
         CategoryColorDialog(
             categories = categories,

@@ -22,6 +22,12 @@ interface TaskDao {
     @Insert
     suspend fun insert(task: RoutineTask): Long
 
+    @Insert
+    suspend fun insertAll(tasks: List<RoutineTask>)
+
+    @Query("DELETE FROM tasks")
+    suspend fun deleteAll()
+
     @Update
     suspend fun update(task: RoutineTask)
 
@@ -45,12 +51,27 @@ interface CategoryDao {
 
     @Insert
     suspend fun insert(category: Category): Long
+
+    @Insert
+    suspend fun insertAll(categories: List<Category>)
+
+    @Query("DELETE FROM categories")
+    suspend fun deleteAll()
 }
 
 @Dao
 interface LogDao {
     @Query("SELECT * FROM task_logs WHERE epochDay = :epochDay")
     fun observeByDay(epochDay: Long): Flow<List<TaskLog>>
+
+    @Query("SELECT * FROM task_logs")
+    suspend fun getAll(): List<TaskLog>
+
+    @Insert
+    suspend fun insertAll(logs: List<TaskLog>)
+
+    @Query("DELETE FROM task_logs")
+    suspend fun deleteAll()
 
     @Query("SELECT * FROM task_logs WHERE epochDay = :epochDay")
     suspend fun getByDay(epochDay: Long): List<TaskLog>
