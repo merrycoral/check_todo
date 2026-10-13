@@ -40,9 +40,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.merrycoral.checktodo.data.Category
+import com.merrycoral.checktodo.data.CategoryPalette
 import com.merrycoral.checktodo.data.RepeatType
 import com.merrycoral.checktodo.data.RoutineTask
 import com.merrycoral.checktodo.data.WEEKDAY_LABELS
@@ -60,7 +62,7 @@ fun TaskEditScreen(
     categories: List<Category>,
     onSave: (RoutineTask) -> Unit,
     onDelete: (RoutineTask) -> Unit,
-    onAddCategory: (name: String, onAdded: (Long) -> Unit) -> Unit,
+    onAddCategory: (name: String, color: Int, onAdded: (Long) -> Unit) -> Unit,
     onBack: () -> Unit,
 ) {
     var title by remember { mutableStateOf(task?.title.orEmpty()) }
@@ -121,6 +123,7 @@ fun TaskEditScreen(
                             selected = categoryId == category.id,
                             onClick = { categoryId = category.id },
                             label = { Text(category.name) },
+                            leadingIcon = { ColorDot(Color(category.color)) },
                         )
                     }
                     FilterChip(
@@ -219,9 +222,9 @@ fun TaskEditScreen(
     if (showCategoryDialog) {
         AddCategoryDialog(
             existingNames = categories.map { it.name },
-            onConfirm = { name ->
+            onConfirm = { name, color ->
                 showCategoryDialog = false
-                onAddCategory(name) { categoryId = it }
+                onAddCategory(name, color) { categoryId = it }
             },
             onDismiss = { showCategoryDialog = false },
         )
@@ -270,27 +273,32 @@ private fun TimePickerDialog(
 @Composable
 private fun AddCategoryDialog(
     existingNames: List<String>,
-    onConfirm: (String) -> Unit,
+    onConfirm: (name: String, color: Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var name by remember { mutableStateOf("") }
+    var color by remember { mutableIntStateOf(CategoryPalette.DEFAULT_COLOR) }
     val trimmed = name.trim()
     val duplicate = existingNames.any { it.equals(trimmed, ignoreCase = true) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("카테고리 추가") },
         text = {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("카테고리 이름") },
-                singleLine = true,
-                isError = duplicate,
-                supportingText = if (duplicate) ({ Text("이미 있는 카테고리예요.") }) else null,
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("카테고리 이름") },
+                    singleLine = true,
+                    isError = duplicate,
+                    supportingText = if (duplicate) ({ Text("이미 있는 카테고리예요.") }) else null,
+                )
+                Text("색상", style = MaterialTheme.typography.titleSmall)
+                ColorPalette(selected = color, onSelect = { color = it })
+            }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(trimmed) }, enabled = trimmed.isNotEmpty() && !duplicate) { Text("추가") }
+            TextButton(onClick = { onConfirm(trimmed, color) }, enabled = trimmed.isNotEmpty() && !duplicate) { Text("추가") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("취소") } },
     )

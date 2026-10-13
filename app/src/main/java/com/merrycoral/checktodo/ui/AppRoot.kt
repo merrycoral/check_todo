@@ -58,6 +58,7 @@ fun AppRoot(viewModel: MainViewModel) {
 
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var editorOpen by rememberSaveable { mutableStateOf(false) }
+    var categoryColorsOpen by rememberSaveable { mutableStateOf(false) }
     // 0 = 새 할 일
     var editingTaskId by rememberSaveable { mutableLongStateOf(0L) }
 
@@ -161,9 +162,18 @@ fun AppRoot(viewModel: MainViewModel) {
                         editorOpen = true
                     },
                     onToggleEnabled = viewModel::setEnabled,
+                    onManageCategories = { categoryColorsOpen = true },
                 )
             }
         }
+    }
+
+    if (categoryColorsOpen) {
+        CategoryColorDialog(
+            categories = categories,
+            onColorChange = viewModel::setCategoryColor,
+            onDismiss = { categoryColorsOpen = false },
+        )
     }
 }
 

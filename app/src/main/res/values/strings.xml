@@ -5,4 +5,5 @@
     <string name="action_done">수행</string>
     <string name="action_skip">건너뛰기</string>
     <string name="action_snooze">1시간 후 다시알림</string>
+    <string name="widget_description">오늘 할 일을 보고 바로 체크해요</string>
 </resources>

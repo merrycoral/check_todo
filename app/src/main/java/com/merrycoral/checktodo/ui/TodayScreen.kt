@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -25,8 +26,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import com.merrycoral.checktodo.data.Category
 import com.merrycoral.checktodo.data.LogStatus
+import com.merrycoral.checktodo.data.TodayItem
 import com.merrycoral.checktodo.data.repeatLabel
 import com.merrycoral.checktodo.data.timeLabel
 import java.time.LocalDate
@@ -80,6 +83,7 @@ fun TodayScreen(
                         selected = selectedCategory == category.id,
                         onClick = { selectedCategory = category.id },
                         label = { Text(category.name) },
+                        leadingIcon = { ColorDot(Color(category.color)) },
                     )
                 }
             }
@@ -107,6 +111,7 @@ private fun TodayRow(
     onUndo: (TodayItem) -> Unit,
 ) {
     val done = item.status == LogStatus.DONE
+    val categoryColor = Color(item.categoryColor)
     Card(Modifier.fillMaxWidth()) {
         Row(
             Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -115,6 +120,7 @@ private fun TodayRow(
             Checkbox(
                 checked = done,
                 onCheckedChange = { if (done) onUndo(item) else onDone(item) },
+                colors = CheckboxDefaults.colors(checkedColor = categoryColor, uncheckedColor = categoryColor),
             )
             Column(Modifier.weight(1f)) {
                 Text(
@@ -122,10 +128,14 @@ private fun TodayRow(
                     style = MaterialTheme.typography.titleMedium,
                     textDecoration = if (done) TextDecoration.LineThrough else null,
                 )
-                Text(
-                    "${item.categoryName} · ${item.task.timeLabel()} · ${item.task.repeatLabel()}",
-                    style = MaterialTheme.typography.bodySmall,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    ColorDot(categoryColor, size = 8.dp)
+                    Text(
+                        "${item.categoryName} · ${item.task.timeLabel()} · ${item.task.repeatLabel()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 6.dp),
+                    )
+                }
             }
             when (item.status) {
                 null -> TextButton(onClick = { onSkip(item) }) { Text("건너뛰기") }

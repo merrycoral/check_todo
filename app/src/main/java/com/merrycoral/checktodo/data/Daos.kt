@@ -13,7 +13,7 @@ interface TaskDao {
     @Query("SELECT * FROM tasks ORDER BY hour, minute, id")
     fun observeAll(): Flow<List<RoutineTask>>
 
-    @Query("SELECT * FROM tasks")
+    @Query("SELECT * FROM tasks ORDER BY hour, minute, id")
     suspend fun getAll(): List<RoutineTask>
 
     @Query("SELECT * FROM tasks WHERE id = :id")
@@ -34,8 +34,14 @@ interface CategoryDao {
     @Query("SELECT * FROM categories ORDER BY id")
     fun observeAll(): Flow<List<Category>>
 
+    @Query("SELECT * FROM categories ORDER BY id")
+    suspend fun getAll(): List<Category>
+
     @Query("SELECT * FROM categories WHERE id = :id")
     suspend fun getById(id: Long): Category
+
+    @Query("UPDATE categories SET color = :color WHERE id = :id")
+    suspend fun updateColor(id: Long, color: Int)
 
     @Insert
     suspend fun insert(category: Category): Long
@@ -45,6 +51,9 @@ interface CategoryDao {
 interface LogDao {
     @Query("SELECT * FROM task_logs WHERE epochDay = :epochDay")
     fun observeByDay(epochDay: Long): Flow<List<TaskLog>>
+
+    @Query("SELECT * FROM task_logs WHERE epochDay = :epochDay")
+    suspend fun getByDay(epochDay: Long): List<TaskLog>
 
     @Query("SELECT * FROM task_logs WHERE taskId = :taskId AND epochDay = :epochDay")
     suspend fun get(taskId: Long, epochDay: Long): TaskLog?

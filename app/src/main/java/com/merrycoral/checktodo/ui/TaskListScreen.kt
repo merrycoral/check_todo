@@ -12,10 +12,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.merrycoral.checktodo.data.RoutineTask
 import com.merrycoral.checktodo.data.repeatLabel
@@ -26,6 +28,7 @@ fun TaskListScreen(
     rows: List<TaskRow>,
     onEdit: (RoutineTask) -> Unit,
     onToggleEnabled: (RoutineTask, Boolean) -> Unit,
+    onManageCategories: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -34,18 +37,22 @@ fun TaskListScreen(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        item {
+            TextButton(onClick = onManageCategories) { Text("카테고리 색상 설정") }
+        }
         if (rows.isEmpty()) {
             item {
                 Text("등록된 할 일이 없어요. 아래 버튼으로 추가해 보세요.", style = MaterialTheme.typography.bodyLarge)
             }
         }
-        items(rows, key = { it.task.id }) { (task, categoryName) ->
+        items(rows, key = { it.task.id }) { (task, categoryName, categoryColor) ->
             Card(Modifier.fillMaxWidth().clickable { onEdit(task) }) {
                 Row(
                     Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(Modifier.weight(1f)) {
+                    ColorDot(Color(categoryColor), size = 14.dp)
+                    Column(Modifier.weight(1f).padding(start = 12.dp)) {
                         Text(task.title, style = MaterialTheme.typography.titleMedium)
                         Text(
                             "$categoryName · ${task.repeatLabel()} · ${task.timeLabel()}",

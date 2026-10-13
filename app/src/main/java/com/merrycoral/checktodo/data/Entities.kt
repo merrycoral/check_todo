@@ -13,6 +13,8 @@ enum class LogStatus { DONE, SKIPPED }
 data class Category(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
+    /** ARGB */
+    val color: Int,
 )
 
 /**
