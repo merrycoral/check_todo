@@ -8,10 +8,20 @@ import androidx.room.Query
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
+private const val TASK_WITH_CATEGORY_QUERY =
+    "SELECT t.*, c.name AS categoryName, c.color AS categoryColor " +
+        "FROM tasks t JOIN categories c ON c.id = t.categoryId ORDER BY t.hour, t.minute, t.id"
+
 @Dao
 interface TaskDao {
     @Query("SELECT * FROM tasks ORDER BY hour, minute, id")
     fun observeAll(): Flow<List<RoutineTask>>
+
+    @Query(TASK_WITH_CATEGORY_QUERY)
+    fun observeAllWithCategory(): Flow<List<TaskWithCategory>>
+
+    @Query(TASK_WITH_CATEGORY_QUERY)
+    suspend fun getAllWithCategory(): List<TaskWithCategory>
 
     @Query("SELECT * FROM tasks ORDER BY hour, minute, id")
     suspend fun getAll(): List<RoutineTask>
@@ -84,4 +94,22 @@ interface LogDao {
 
     @Query("DELETE FROM task_logs WHERE taskId = :taskId AND epochDay = :epochDay")
     suspend fun delete(taskId: Long, epochDay: Long)
+}
+
+@Dao
+interface PendingAlarmDao {
+    @Query("SELECT * FROM pending_alarms")
+    suspend fun getAll(): List<PendingAlarm>
+
+    @Query("SELECT * FROM pending_alarms WHERE taskId = :taskId AND snooze = :snooze")
+    suspend fun get(taskId: Long, snooze: Boolean): PendingAlarm?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(alarm: PendingAlarm)
+
+    @Query("DELETE FROM pending_alarms WHERE taskId = :taskId AND snooze = :snooze")
+    suspend fun delete(taskId: Long, snooze: Boolean)
+
+    @Query("DELETE FROM pending_alarms WHERE taskId = :taskId")
+    suspend fun deleteForTask(taskId: Long)
 }

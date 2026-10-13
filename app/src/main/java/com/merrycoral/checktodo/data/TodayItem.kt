@@ -12,17 +12,12 @@ data class TodayItem(
 
 /** 앱 화면과 홈 화면 위젯이 함께 쓰는 '오늘 할 일' 계산. [tasks] 의 순서를 유지한다. */
 fun buildTodayItems(
-    tasks: List<RoutineTask>,
-    categories: List<Category>,
+    tasks: List<TaskWithCategory>,
     logs: List<TaskLog>,
     today: LocalDate,
 ): List<TodayItem> {
-    val categoryById = categories.associateBy { it.id }
     val statusByTask = logs.associate { it.taskId to it.status }
     return tasks
-        .filter { it.enabled && it.occursOn(today) }
-        .map {
-            val category = categoryById.getValue(it.categoryId)
-            TodayItem(it, category.name, category.color, statusByTask[it.id])
-        }
+        .filter { it.task.enabled && it.task.occursOn(today) }
+        .map { TodayItem(it.task, it.categoryName, it.categoryColor, statusByTask[it.task.id]) }
 }

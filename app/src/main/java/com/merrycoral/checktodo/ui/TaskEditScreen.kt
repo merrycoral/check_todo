@@ -66,7 +66,9 @@ fun TaskEditScreen(
     onBack: () -> Unit,
 ) {
     var title by remember { mutableStateOf(task?.title.orEmpty()) }
-    var categoryId by remember { mutableStateOf(task?.categoryId ?: categories.firstOrNull()?.id) }
+    // 사용자가 고른 카테고리. 고르지 않았다면 기존 할 일의 카테고리, 새 할 일이면 목록의 첫 카테고리를 쓴다.
+    var chosenCategoryId by remember { mutableStateOf(task?.categoryId) }
+    val categoryId = chosenCategoryId ?: categories.firstOrNull()?.id
     var repeatType by remember { mutableStateOf(task?.repeatType ?: RepeatType.DAILY) }
     var weekDays by remember { mutableIntStateOf(task?.weekDays ?: 0) }
     var monthDay by remember { mutableIntStateOf(task?.monthDay ?: 1) }
@@ -121,7 +123,7 @@ fun TaskEditScreen(
                     categories.forEach { category ->
                         FilterChip(
                             selected = categoryId == category.id,
-                            onClick = { categoryId = category.id },
+                            onClick = { chosenCategoryId = category.id },
                             label = { Text(category.name) },
                             leadingIcon = { ColorDot(Color(category.color)) },
                         )
@@ -224,7 +226,7 @@ fun TaskEditScreen(
             existingNames = categories.map { it.name },
             onConfirm = { name, color ->
                 showCategoryDialog = false
-                onAddCategory(name, color) { categoryId = it }
+                onAddCategory(name, color) { chosenCategoryId = it }
             },
             onDismiss = { showCategoryDialog = false },
         )

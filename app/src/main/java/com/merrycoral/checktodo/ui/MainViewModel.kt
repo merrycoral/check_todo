@@ -11,11 +11,13 @@ import com.merrycoral.checktodo.data.BackupSnapshot
 import com.merrycoral.checktodo.data.Category
 import com.merrycoral.checktodo.data.LogStatus
 import com.merrycoral.checktodo.data.RoutineTask
+import com.merrycoral.checktodo.data.TaskWithCategory
 import com.merrycoral.checktodo.data.TodayItem
 import com.merrycoral.checktodo.data.buildTodayItems
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,14 +26,9 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Duration
 import java.time.LocalDate
-
-/** 할 일 관리 목록의 한 줄. */
-data class TaskRow(
-    val task: RoutineTask,
-    val categoryName: String,
-    val categoryColor: Int,
-)
+import java.time.LocalDateTime
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -56,26 +53,33 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val categories: StateFlow<List<Category>> = repository.observeCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val tasks: StateFlow<List<RoutineTask>> = repository.observeTasks()
+    /** 아직 DB 에서 읽지 못했으면 null. (빈 목록과 구분해, 로드 전에 편집기가 빈 폼으로 열리지 않게 한다) */
+    val tasks: StateFlow<List<RoutineTask>?> = repository.observeTasks()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    // 할 일과 카테고리는 JOIN 쿼리 하나로 읽는다. 따로 읽으면 백업 복원처럼 둘이 동시에 바뀔 때
+    // 서로 다른 시점의 목록이 합쳐져 존재하지 않는 카테고리를 참조할 수 있다.
+    val taskRows: StateFlow<List<TaskWithCategory>> = repository.observeTasksWithCategory()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val todayLogs = _today.flatMapLatest { repository.observeLogs(it.toEpochDay()) }
 
-    // tasks 와 categories 는 각각 따로 로드되므로, 둘 다 DB 에서 읽힌 뒤에만 이름을 매핑한다.
-    // (초기값을 가진 StateFlow 를 combine 하면 카테고리보다 할 일이 먼저 도착할 수 있다)
-    val taskRows: StateFlow<List<TaskRow>> =
-        combine(repository.observeTasks(), repository.observeCategories()) { tasks, categories ->
-            val categoryById = categories.associateBy { it.id }
-            tasks.map {
-                val category = categoryById.getValue(it.categoryId)
-                TaskRow(it, category.name, category.color)
-            }
+    val todayItems: StateFlow<List<TodayItem>> =
+        combine(repository.observeTasksWithCategory(), todayLogs, _today) { tasks, logs, today ->
+            buildTodayItems(tasks, logs, today)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val todayItems: StateFlow<List<TodayItem>> =
-        combine(repository.observeTasks(), repository.observeCategories(), todayLogs, _today) { tasks, categories, logs, today ->
-            buildTodayItems(tasks, categories, logs, today)
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    init {
+        // 앱을 켜 둔 채 자정이 지나도 '오늘'이 바뀌도록 한다.
+        viewModelScope.launch {
+            while (true) {
+                val now = LocalDateTime.now()
+                val nextMidnight = now.toLocalDate().plusDays(1).atStartOfDay()
+                delay(Duration.between(now, nextMidnight).toMillis() + 1_000)
+                _today.value = LocalDate.now()
+            }
+        }
+    }
 
     /** 화면이 다시 보일 때: 날짜·권한 상태를 갱신하고 알람을 다시 맞춘다(멱등). */
     fun onResume() {

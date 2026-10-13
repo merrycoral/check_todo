@@ -1,5 +1,6 @@
 package com.merrycoral.checktodo.data
 
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -64,4 +65,37 @@ data class TaskLog(
     val epochDay: Long,
     val status: LogStatus,
     val loggedAt: Long,
+)
+
+/**
+ * 예약된(아직 울리지 않은) 알람 기록. 알람이 울리면 지운다.
+ * 재부팅 후 다시 등록하고, 꺼져 있던 동안 놓친 알림(기록이 남아 있는데 시각이 지난 것)을 찾는 데 쓴다.
+ * - [snooze]: false = 정규 알람, true = '1시간 후 다시알림'
+ * - [epochDay]: 이 알림이 가리키는 회차의 날짜
+ * - [triggerAt]: 알람 시각(epoch millis)
+ */
+@Entity(
+    tableName = "pending_alarms",
+    primaryKeys = ["taskId", "snooze"],
+    foreignKeys = [
+        ForeignKey(
+            entity = RoutineTask::class,
+            parentColumns = ["id"],
+            childColumns = ["taskId"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+)
+data class PendingAlarm(
+    val taskId: Long,
+    val snooze: Boolean,
+    val epochDay: Long,
+    val triggerAt: Long,
+)
+
+/** 할 일 + 소속 카테고리 이름·색. 한 번의 JOIN 쿼리로 읽어 둘이 항상 일관된다. */
+data class TaskWithCategory(
+    @Embedded val task: RoutineTask,
+    val categoryName: String,
+    val categoryColor: Int,
 )
