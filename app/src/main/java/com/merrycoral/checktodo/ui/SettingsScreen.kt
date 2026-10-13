@@ -33,6 +33,10 @@ fun SettingsScreen(
             "데이터는 이 기기에만 저장돼요. 기기를 바꾸거나 앱을 지우기 전에 백업 파일을 만들어 Google Drive 등 원하는 곳에 보관하세요.",
             style = MaterialTheme.typography.bodyMedium,
         )
+        Text(
+            "백업 항목: 할 일(반복 주기·알림 시각·사용 여부), 카테고리(직접 추가한 카테고리와 카테고리별 색상 포함), 수행/건너뛰기 기록",
+            style = MaterialTheme.typography.bodySmall,
+        )
         Button(onClick = onExport, modifier = Modifier.fillMaxWidth()) { Text("백업 파일 내보내기") }
         OutlinedButton(onClick = onRestore, modifier = Modifier.fillMaxWidth()) { Text("백업 파일에서 복원") }
         if (backupMessage != null) {
@@ -49,7 +53,7 @@ fun RestoreConfirmDialog(snapshot: BackupSnapshot, onConfirm: () -> Unit, onDism
         title = { Text("백업에서 복원할까요?") },
         text = {
             Text(
-                "현재 데이터가 모두 지워지고 백업 파일의 내용으로 바뀌어요.\n\n" +
+                "현재 데이터가 모두 지워지고 백업 파일의 내용으로 바뀌어요. 카테고리 이름과 색상도 백업 시점의 상태로 돌아가요.\n\n" +
                     "카테고리 ${snapshot.categories.size}개 · 할 일 ${snapshot.tasks.size}개 · 수행 기록 ${snapshot.logs.size}건",
             )
         },
