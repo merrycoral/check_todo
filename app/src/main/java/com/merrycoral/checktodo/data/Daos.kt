@@ -1,0 +1,87 @@
+package com.merrycoral.checktodo.data
+
+import androidx.room.Dao
+import androidx.room.Delete
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import androidx.room.Update
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface TaskDao {
+    @Query("SELECT * FROM tasks ORDER BY hour, minute, id")
+    fun observeAll(): Flow<List<RoutineTask>>
+
+    @Query("SELECT * FROM tasks ORDER BY hour, minute, id")
+    suspend fun getAll(): List<RoutineTask>
+
+    @Query("SELECT * FROM tasks WHERE id = :id")
+    suspend fun getById(id: Long): RoutineTask?
+
+    @Insert
+    suspend fun insert(task: RoutineTask): Long
+
+    @Insert
+    suspend fun insertAll(tasks: List<RoutineTask>)
+
+    @Query("DELETE FROM tasks")
+    suspend fun deleteAll()
+
+    @Update
+    suspend fun update(task: RoutineTask)
+
+    @Delete
+    suspend fun delete(task: RoutineTask)
+}
+
+@Dao
+interface CategoryDao {
+    @Query("SELECT * FROM categories ORDER BY id")
+    fun observeAll(): Flow<List<Category>>
+
+    @Query("SELECT * FROM categories ORDER BY id")
+    suspend fun getAll(): List<Category>
+
+    @Query("SELECT * FROM categories WHERE id = :id")
+    suspend fun getById(id: Long): Category
+
+    @Query("UPDATE categories SET color = :color WHERE id = :id")
+    suspend fun updateColor(id: Long, color: Int)
+
+    @Insert
+    suspend fun insert(category: Category): Long
+
+    @Insert
+    suspend fun insertAll(categories: List<Category>)
+
+    @Query("DELETE FROM categories")
+    suspend fun deleteAll()
+}
+
+@Dao
+interface LogDao {
+    @Query("SELECT * FROM task_logs WHERE epochDay = :epochDay")
+    fun observeByDay(epochDay: Long): Flow<List<TaskLog>>
+
+    @Query("SELECT * FROM task_logs")
+    suspend fun getAll(): List<TaskLog>
+
+    @Insert
+    suspend fun insertAll(logs: List<TaskLog>)
+
+    @Query("DELETE FROM task_logs")
+    suspend fun deleteAll()
+
+    @Query("SELECT * FROM task_logs WHERE epochDay = :epochDay")
+    suspend fun getByDay(epochDay: Long): List<TaskLog>
+
+    @Query("SELECT * FROM task_logs WHERE taskId = :taskId AND epochDay = :epochDay")
+    suspend fun get(taskId: Long, epochDay: Long): TaskLog?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(log: TaskLog)
+
+    @Query("DELETE FROM task_logs WHERE taskId = :taskId AND epochDay = :epochDay")
+    suspend fun delete(taskId: Long, epochDay: Long)
+}
