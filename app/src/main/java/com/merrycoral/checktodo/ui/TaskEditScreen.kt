@@ -200,17 +200,13 @@ fun TaskEditScreen(
                             },
                             label = { Text(slotLabel(slot)) },
                             // 알림 시각은 최소 하나는 있어야 하므로 하나만 남으면 삭제 버튼을 숨긴다
-                            trailingIcon = if (times.size > 1) {
-                                {
-                                    Icon(
-                                        Icons.Default.Close,
-                                        contentDescription = "${slotLabel(slot)} 삭제",
-                                        modifier = Modifier.size(18.dp).clickable { times = times - slot },
-                                    )
-                                }
-                            } else {
-                                null
-                            },
+                            trailingIcon = if (times.size > 1) ({
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "${slotLabel(slot)} 삭제",
+                                    modifier = Modifier.size(18.dp).clickable { times = times - slot },
+                                )
+                            }) else null,
                         )
                     }
                     AssistChip(

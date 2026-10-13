@@ -23,7 +23,7 @@ interface TaskDao {
     @Query(TASK_WITH_CATEGORY_QUERY)
     suspend fun getAllWithCategory(): List<TaskWithCategory>
 
-    @Query("SELECT * FROM tasks ORDER BY hour, minute, id")
+    @Query("SELECT * FROM tasks ORDER BY id")
     suspend fun getAll(): List<RoutineTask>
 
     @Query("SELECT * FROM tasks WHERE id = :id")
