@@ -10,11 +10,11 @@ import kotlinx.coroutines.flow.Flow
 
 private const val TASK_WITH_CATEGORY_QUERY =
     "SELECT t.*, c.name AS categoryName, c.color AS categoryColor " +
-        "FROM tasks t JOIN categories c ON c.id = t.categoryId ORDER BY t.hour, t.minute, t.id"
+        "FROM tasks t JOIN categories c ON c.id = t.categoryId ORDER BY t.id"
 
 @Dao
 interface TaskDao {
-    @Query("SELECT * FROM tasks ORDER BY hour, minute, id")
+    @Query("SELECT * FROM tasks ORDER BY id")
     fun observeAll(): Flow<List<RoutineTask>>
 
     @Query(TASK_WITH_CATEGORY_QUERY)
@@ -86,14 +86,14 @@ interface LogDao {
     @Query("SELECT * FROM task_logs WHERE epochDay = :epochDay")
     suspend fun getByDay(epochDay: Long): List<TaskLog>
 
-    @Query("SELECT * FROM task_logs WHERE taskId = :taskId AND epochDay = :epochDay")
-    suspend fun get(taskId: Long, epochDay: Long): TaskLog?
+    @Query("SELECT * FROM task_logs WHERE taskId = :taskId AND epochDay = :epochDay AND slot = :slot")
+    suspend fun get(taskId: Long, epochDay: Long, slot: Int): TaskLog?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(log: TaskLog)
 
-    @Query("DELETE FROM task_logs WHERE taskId = :taskId AND epochDay = :epochDay")
-    suspend fun delete(taskId: Long, epochDay: Long)
+    @Query("DELETE FROM task_logs WHERE taskId = :taskId AND epochDay = :epochDay AND slot = :slot")
+    suspend fun delete(taskId: Long, epochDay: Long, slot: Int)
 }
 
 @Dao
@@ -101,14 +101,21 @@ interface PendingAlarmDao {
     @Query("SELECT * FROM pending_alarms")
     suspend fun getAll(): List<PendingAlarm>
 
-    @Query("SELECT * FROM pending_alarms WHERE taskId = :taskId AND snooze = :snooze")
-    suspend fun get(taskId: Long, snooze: Boolean): PendingAlarm?
+    @Query("SELECT * FROM pending_alarms WHERE taskId = :taskId")
+    suspend fun getForTask(taskId: Long): List<PendingAlarm>
+
+    @Query("SELECT * FROM pending_alarms WHERE taskId = :taskId AND snooze = :snooze AND slot = :slot")
+    suspend fun get(taskId: Long, snooze: Boolean, slot: Int): PendingAlarm?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(alarm: PendingAlarm)
 
-    @Query("DELETE FROM pending_alarms WHERE taskId = :taskId AND snooze = :snooze")
-    suspend fun delete(taskId: Long, snooze: Boolean)
+    @Query("DELETE FROM pending_alarms WHERE taskId = :taskId AND snooze = :snooze AND slot = :slot")
+    suspend fun delete(taskId: Long, snooze: Boolean, slot: Int)
+
+    /** 할 일의 정규 알람 기록을 지운다(정규 알람은 할 일마다 하나만 둔다). */
+    @Query("DELETE FROM pending_alarms WHERE taskId = :taskId AND snooze = 0")
+    suspend fun deleteRegular(taskId: Long)
 
     @Query("DELETE FROM pending_alarms WHERE taskId = :taskId")
     suspend fun deleteForTask(taskId: Long)

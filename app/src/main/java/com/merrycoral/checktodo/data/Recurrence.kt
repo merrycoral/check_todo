@@ -17,14 +17,19 @@ fun RoutineTask.occursOn(date: LocalDate): Boolean = when (repeatType) {
     RepeatType.MONTHLY -> date.dayOfMonth == minOf(monthDay, date.lengthOfMonth())
 }
 
-/** [after] 이후(엄밀히 초과)의 가장 가까운 알림 시각. */
-fun RoutineTask.nextTrigger(after: LocalDateTime): LocalDateTime {
+/** 다음 알림 회차: 알림 시각과 그 회차의 시각([slot], 자정부터의 분). */
+data class Occurrence(val dateTime: LocalDateTime, val slot: Int)
+
+/** [after] 이후(엄밀히 초과)의 가장 가까운 알림 회차. [RoutineTask.times] 는 오름차순이어야 한다. */
+fun RoutineTask.nextOccurrence(after: LocalDateTime): Occurrence {
     val startDate = after.toLocalDate()
     for (offset in 0..MAX_LOOKAHEAD_DAYS) {
         val date = startDate.plusDays(offset)
         if (!occursOn(date)) continue
-        val candidate = date.atTime(hour, minute)
-        if (candidate.isAfter(after)) return candidate
+        for (slot in times) {
+            val candidate = date.atTime(slot / 60, slot % 60)
+            if (candidate.isAfter(after)) return Occurrence(candidate, slot)
+        }
     }
     error("다음 알림 시각을 찾을 수 없음: $this")
 }
@@ -36,4 +41,7 @@ fun RoutineTask.repeatLabel(): String = when (repeatType) {
     RepeatType.MONTHLY -> "매월 ${monthDay}일"
 }
 
-fun RoutineTask.timeLabel(): String = "%02d:%02d".format(hour, minute)
+/** 자정부터의 분 → "HH:mm" */
+fun slotLabel(slot: Int): String = "%02d:%02d".format(slot / 60, slot % 60)
+
+fun RoutineTask.timesLabel(): String = times.joinToString(", ") { slotLabel(it) }

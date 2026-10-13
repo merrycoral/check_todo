@@ -39,7 +39,7 @@ import com.merrycoral.checktodo.CheckTodoApp
 import com.merrycoral.checktodo.MainActivity
 import com.merrycoral.checktodo.data.LogStatus
 import com.merrycoral.checktodo.data.TodayItem
-import com.merrycoral.checktodo.data.timeLabel
+import com.merrycoral.checktodo.data.slotLabel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -52,6 +52,7 @@ private val MutedColor = ColorProvider(day = Color(0xFF6B6B6B), night = Color(0x
 
 val TaskIdKey = ActionParameters.Key<Long>("task_id")
 val EpochDayKey = ActionParameters.Key<Long>("epoch_day")
+val SlotKey = ActionParameters.Key<Int>("slot")
 val DoneKey = ActionParameters.Key<Boolean>("done")
 
 /** 오늘 할 일을 보여주고, 체크박스로 수행/미수행을 토글하는 홈 화면 위젯. */
@@ -73,12 +74,13 @@ class ToggleTaskAction : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         val taskId = checkNotNull(parameters[TaskIdKey])
         val epochDay = checkNotNull(parameters[EpochDayKey])
+        val slot = checkNotNull(parameters[SlotKey])
         val wasDone = checkNotNull(parameters[DoneKey])
         val repository = (context.applicationContext as CheckTodoApp).repository
         if (wasDone) {
-            repository.clearLog(taskId, epochDay)
+            repository.clearLog(taskId, epochDay, slot)
         } else {
-            repository.setLog(taskId, epochDay, LogStatus.DONE)
+            repository.setLog(taskId, epochDay, slot, LogStatus.DONE)
         }
     }
 }
@@ -105,7 +107,7 @@ private fun WidgetContent(today: LocalDate, items: List<TodayItem>) {
             Text("오늘 할 일이 없어요.", style = TextStyle(color = MutedColor, fontSize = 14.sp))
         } else {
             LazyColumn {
-                items(items, itemId = { it.task.id }) { item -> TodoRow(today, item) }
+                items(items, itemId = { it.task.id * 1440 + it.slot }) { item -> TodoRow(today, item) }
             }
         }
     }
@@ -116,7 +118,7 @@ private fun TodoRow(today: LocalDate, item: TodayItem) {
     val done = item.status == LogStatus.DONE
     val categoryColor = ColorProvider(day = Color(item.categoryColor), night = Color(item.categoryColor))
     val label = buildString {
-        append(item.task.timeLabel()).append("  ").append(item.task.title)
+        append(slotLabel(item.slot)).append("  ").append(item.task.title)
         if (item.status == LogStatus.SKIPPED) append("  (건너뜀)")
     }
     CheckBox(
@@ -125,6 +127,7 @@ private fun TodoRow(today: LocalDate, item: TodayItem) {
             actionParametersOf(
                 TaskIdKey to item.task.id,
                 EpochDayKey to today.toEpochDay(),
+                SlotKey to item.slot,
                 DoneKey to done,
             ),
         ),

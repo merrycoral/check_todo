@@ -94,11 +94,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun skip(item: TodayItem) = setLog(item, LogStatus.SKIPPED)
 
     fun undo(item: TodayItem) {
-        viewModelScope.launch { repository.clearLog(item.task.id, _today.value.toEpochDay()) }
+        viewModelScope.launch { repository.clearLog(item.task.id, _today.value.toEpochDay(), item.slot) }
     }
 
     private fun setLog(item: TodayItem, status: LogStatus) {
-        viewModelScope.launch { repository.setLog(item.task.id, _today.value.toEpochDay(), status) }
+        viewModelScope.launch { repository.setLog(item.task.id, _today.value.toEpochDay(), item.slot, status) }
     }
 
     fun saveTask(task: RoutineTask) {

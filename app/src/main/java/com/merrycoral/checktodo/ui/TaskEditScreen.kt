@@ -1,5 +1,6 @@
 package com.merrycoral.checktodo.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -8,17 +9,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -48,6 +53,7 @@ import com.merrycoral.checktodo.data.CategoryPalette
 import com.merrycoral.checktodo.data.RepeatType
 import com.merrycoral.checktodo.data.RoutineTask
 import com.merrycoral.checktodo.data.WEEKDAY_LABELS
+import com.merrycoral.checktodo.data.slotLabel
 
 private val REPEAT_LABELS = mapOf(
     RepeatType.DAILY to "매일",
@@ -72,10 +78,14 @@ fun TaskEditScreen(
     var repeatType by remember { mutableStateOf(task?.repeatType ?: RepeatType.DAILY) }
     var weekDays by remember { mutableIntStateOf(task?.weekDays ?: 0) }
     var monthDay by remember { mutableIntStateOf(task?.monthDay ?: 1) }
-    var hour by remember { mutableIntStateOf(task?.hour ?: 9) }
-    var minute by remember { mutableIntStateOf(task?.minute ?: 0) }
+    // 알림 시각들(자정부터의 분, 오름차순). 새 할 일의 기본값은 오전 9시.
+    var times by remember { mutableStateOf(task?.times ?: listOf(9 * 60)) }
+    var memo by remember { mutableStateOf(task?.memo.orEmpty()) }
 
     var showTimePicker by remember { mutableStateOf(false) }
+    // 시간 선택기로 수정 중인 기존 시각. null 이면 새 시각을 추가하는 중.
+    var editingTime by remember { mutableStateOf<Int?>(null) }
+    var timeError by remember { mutableStateOf<String?>(null) }
     var showCategoryDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
@@ -179,10 +189,57 @@ fun TaskEditScreen(
             }
 
             Section("알림 시각") {
-                OutlinedButton(onClick = { showTimePicker = true }) {
-                    Text("%02d:%02d".format(hour, minute))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    times.forEach { slot ->
+                        InputChip(
+                            selected = false,
+                            onClick = {
+                                editingTime = slot
+                                timeError = null
+                                showTimePicker = true
+                            },
+                            label = { Text(slotLabel(slot)) },
+                            // 알림 시각은 최소 하나는 있어야 하므로 하나만 남으면 삭제 버튼을 숨긴다
+                            trailingIcon = if (times.size > 1) {
+                                {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "${slotLabel(slot)} 삭제",
+                                        modifier = Modifier.size(18.dp).clickable { times = times - slot },
+                                    )
+                                }
+                            } else {
+                                null
+                            },
+                        )
+                    }
+                    AssistChip(
+                        onClick = {
+                            editingTime = null
+                            timeError = null
+                            showTimePicker = true
+                        },
+                        label = { Text("+ 시간 추가") },
+                    )
                 }
+                timeError?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+                Text(
+                    "알림 시각마다 따로 수행/건너뛰기를 체크해요.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
+
+            OutlinedTextField(
+                value = memo,
+                onValueChange = { memo = it },
+                label = { Text("메모 (선택)") },
+                placeholder = { Text("예: 비타민D 1정 / 국민카드 결제") },
+                minLines = 1,
+                maxLines = 3,
+                modifier = Modifier.fillMaxWidth(),
+            )
 
             Button(
                 onClick = {
@@ -194,8 +251,8 @@ fun TaskEditScreen(
                             repeatType = repeatType,
                             weekDays = if (repeatType == RepeatType.WEEKLY) weekDays else 0,
                             monthDay = monthDay,
-                            hour = hour,
-                            minute = minute,
+                            times = times,
+                            memo = memo.trim(),
                             enabled = task?.enabled ?: true,
                         ),
                     )
@@ -210,12 +267,19 @@ fun TaskEditScreen(
     }
 
     if (showTimePicker) {
+        // 수정 중이면 그 시각, 추가 중이면 마지막 시각의 한 시간 뒤(자정을 넘지 않게)에서 시작한다
+        val initial = editingTime ?: minOf(times.last() + 60, 24 * 60 - 1)
         TimePickerDialog(
-            initialHour = hour,
-            initialMinute = minute,
+            initialHour = initial / 60,
+            initialMinute = initial % 60,
             onConfirm = { h, m ->
-                hour = h
-                minute = m
+                val slot = h * 60 + m
+                if (slot != editingTime && slot in times) {
+                    timeError = "이미 있는 알림 시각이에요: ${slotLabel(slot)}"
+                } else {
+                    times = (times - listOfNotNull(editingTime) + slot).sorted()
+                    timeError = null
+                }
                 showTimePicker = false
             },
             onDismiss = { showTimePicker = false },
