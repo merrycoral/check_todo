@@ -87,20 +87,31 @@ fun AppRoot(viewModel: MainViewModel) {
     BackHandler(enabled = editorOpen) { editorOpen = false }
 
     if (editorOpen) {
-        TaskEditScreen(
-            task = tasks.firstOrNull { it.id == editingTaskId },
-            categories = categories,
-            onSave = {
-                viewModel.saveTask(it)
-                editorOpen = false
-            },
-            onDelete = {
-                viewModel.deleteTask(it)
-                editorOpen = false
-            },
-            onAddCategory = viewModel::addCategory,
-            onBack = { editorOpen = false },
-        )
+        // 앱이 재시작되어 편집기가 복원될 때는 할 일 목록이 아직 로드되지 않았을 수 있다.
+        // 로드 전에 편집기를 그리면 빈 폼으로 초기화되어 기존 할 일을 덮어쓸 수 있으므로 로드를 기다린다.
+        val loadedTasks = tasks
+        if (loadedTasks != null) {
+            val editing = loadedTasks.firstOrNull { it.id == editingTaskId }
+            if (editingTaskId != 0L && editing == null) {
+                // 편집하던 할 일이 더 이상 없다(삭제·복원 등)
+                LaunchedEffect(Unit) { editorOpen = false }
+            } else {
+                TaskEditScreen(
+                    task = editing,
+                    categories = categories,
+                    onSave = {
+                        viewModel.saveTask(it)
+                        editorOpen = false
+                    },
+                    onDelete = {
+                        viewModel.deleteTask(it)
+                        editorOpen = false
+                    },
+                    onAddCategory = viewModel::addCategory,
+                    onBack = { editorOpen = false },
+                )
+            }
+        }
         return
     }
 

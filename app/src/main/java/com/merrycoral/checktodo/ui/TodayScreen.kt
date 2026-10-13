@@ -31,7 +31,7 @@ import com.merrycoral.checktodo.data.Category
 import com.merrycoral.checktodo.data.LogStatus
 import com.merrycoral.checktodo.data.TodayItem
 import com.merrycoral.checktodo.data.repeatLabel
-import com.merrycoral.checktodo.data.timeLabel
+import com.merrycoral.checktodo.data.slotLabel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -97,7 +97,7 @@ fun TodayScreen(
                 )
             }
         }
-        items(visible, key = { it.task.id }) { item ->
+        items(visible, key = { it.key }) { item ->
             TodayRow(item, onDone, onSkip, onUndo)
         }
     }
@@ -131,10 +131,13 @@ private fun TodayRow(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     ColorDot(categoryColor, size = 8.dp)
                     Text(
-                        "${item.categoryName} · ${item.task.timeLabel()} · ${item.task.repeatLabel()}",
+                        "${item.categoryName} · ${slotLabel(item.slot)} · ${item.task.repeatLabel()}",
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(start = 6.dp),
                     )
+                }
+                if (item.task.memo.isNotBlank()) {
+                    Text(item.task.memo, style = MaterialTheme.typography.bodySmall)
                 }
             }
             when (item.status) {

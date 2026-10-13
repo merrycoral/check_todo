@@ -20,12 +20,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.merrycoral.checktodo.data.RoutineTask
+import com.merrycoral.checktodo.data.TaskWithCategory
 import com.merrycoral.checktodo.data.repeatLabel
-import com.merrycoral.checktodo.data.timeLabel
+import com.merrycoral.checktodo.data.timesLabel
 
 @Composable
 fun TaskListScreen(
-    rows: List<TaskRow>,
+    rows: List<TaskWithCategory>,
     onEdit: (RoutineTask) -> Unit,
     onToggleEnabled: (RoutineTask, Boolean) -> Unit,
     onManageCategories: () -> Unit,
@@ -55,9 +56,12 @@ fun TaskListScreen(
                     Column(Modifier.weight(1f).padding(start = 12.dp)) {
                         Text(task.title, style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "$categoryName · ${task.repeatLabel()} · ${task.timeLabel()}",
+                            "$categoryName · ${task.repeatLabel()} · ${task.timesLabel()}",
                             style = MaterialTheme.typography.bodySmall,
                         )
+                        if (task.memo.isNotBlank()) {
+                            Text(task.memo, style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                     Switch(checked = task.enabled, onCheckedChange = { onToggleEnabled(task, it) })
                 }

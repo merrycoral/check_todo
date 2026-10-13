@@ -5,17 +5,16 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import com.merrycoral.checktodo.data.RoutineTask
-import com.merrycoral.checktodo.data.nextTrigger
-import java.time.LocalDateTime
-import java.time.ZoneId
 
 const val EXTRA_TASK_ID = "task_id"
 const val EXTRA_EPOCH_DAY = "epoch_day"
+const val EXTRA_SLOT = "slot"
 const val EXTRA_SNOOZE = "snooze"
 
-private const val SNOOZE_MILLIS = 60 * 60 * 1000L
-
+/**
+ * AlarmManager 래퍼. 무엇을 언제 울릴지는 Repository 가 정하고(pending_alarms 에 기록),
+ * 이 클래스는 시스템 알람의 등록/해제만 담당한다.
+ */
 class AlarmScheduler(private val context: Context) {
     private val alarmManager = context.getSystemService(AlarmManager::class.java)
 
@@ -23,46 +22,43 @@ class AlarmScheduler(private val context: Context) {
     fun canScheduleExact(): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
 
-    /** 다음 정규 알림 하나를 (재)등록한다. 비활성 할 일은 정규 알람만 해제한다. 권한이 없으면 등록하지 않는다(UI 에서 안내). */
-    fun schedule(task: RoutineTask) {
-        alarmManager.cancel(pendingIntent(task.id, snooze = false, epochDay = 0))
-        if (!task.enabled || !canScheduleExact()) return
-        val next = task.nextTrigger(LocalDateTime.now())
-        val triggerAt = next.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        alarmManager.setExactAndAllowWhileIdle(
-            AlarmManager.RTC_WAKEUP,
-            triggerAt,
-            pendingIntent(task.id, snooze = false, epochDay = next.toLocalDate().toEpochDay()),
-        )
-    }
-
-    /** 현재 회차([epochDay])를 1시간 뒤에 다시 알린다. */
-    fun scheduleSnooze(taskId: Long, epochDay: Long) {
+    /**
+     * 알람을 (재)등록한다. 정규 알람은 할 일마다 하나(다음 회차), 다시알림은 회차([slot])마다 하나다.
+     * 권한이 없으면 등록하지 않는다 — 이때도 pending_alarms 에는 기록이 남아 있어,
+     * 권한을 허용한 뒤 앱이 다시 열리면 등록(또는 시각이 지났다면 놓친 알림으로 처리)된다. UI 에서 안내 배너를 보여준다.
+     */
+    fun set(taskId: Long, snooze: Boolean, slot: Int, epochDay: Long, triggerAtMillis: Long) {
         if (!canScheduleExact()) return
         alarmManager.setExactAndAllowWhileIdle(
             AlarmManager.RTC_WAKEUP,
-            System.currentTimeMillis() + SNOOZE_MILLIS,
-            pendingIntent(taskId, snooze = true, epochDay = epochDay),
+            triggerAtMillis,
+            pendingIntent(taskId, snooze, slot, epochDay),
         )
     }
 
-    /** 정규·다시알림 알람을 모두 해제한다. */
-    fun cancel(taskId: Long) {
-        alarmManager.cancel(pendingIntent(taskId, snooze = false, epochDay = 0))
-        alarmManager.cancel(pendingIntent(taskId, snooze = true, epochDay = 0))
+    fun cancel(taskId: Long, snooze: Boolean, slot: Int) {
+        alarmManager.cancel(pendingIntent(taskId, snooze, slot, epochDay = 0))
     }
 
-    private fun pendingIntent(taskId: Long, snooze: Boolean, epochDay: Long): PendingIntent {
+    private fun pendingIntent(taskId: Long, snooze: Boolean, slot: Int, epochDay: Long): PendingIntent {
         val intent = Intent(context, AlarmReceiver::class.java)
             .putExtra(EXTRA_TASK_ID, taskId)
             .putExtra(EXTRA_EPOCH_DAY, epochDay)
+            .putExtra(EXTRA_SLOT, slot)
             .putExtra(EXTRA_SNOOZE, snooze)
-        val requestCode = (taskId * 2 + if (snooze) 1 else 0).toInt()
         return PendingIntent.getBroadcast(
             context,
-            requestCode,
+            requestCode(taskId, snooze, slot),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+    }
+
+    /** 정규 알람은 할 일마다 하나이므로 시각과 무관하게 고정, 다시알림은 회차(0..1439)마다 다르다. */
+    private fun requestCode(taskId: Long, snooze: Boolean, slot: Int): Int =
+        (taskId * REQUEST_CODES_PER_TASK + if (snooze) 2 + slot else 0).toInt()
+
+    private companion object {
+        const val REQUEST_CODES_PER_TASK = 1442L // 정규 1 + 예약 1 + 다시알림 1440
     }
 }

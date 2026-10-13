@@ -53,4 +53,8 @@ dependencies {
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
+
+    testImplementation("junit:junit:4.13.2")
+    // 단위 테스트(JVM)에서는 android.jar 의 org.json 이 동작하지 않으므로 실제 구현을 쓴다
+    testImplementation("org.json:json:20240303")
 }
