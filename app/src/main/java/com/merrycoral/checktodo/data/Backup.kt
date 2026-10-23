@@ -10,10 +10,15 @@ data class BackupSnapshot(
     val logs: List<TaskLog>,
 )
 
-/** 백업 파일(JSON) 인코더/디코더. 디코딩은 파일 전체를 검증하며, 이상이 있으면 예외로 알린다. */
+/**
+ * 백업 파일(JSON) 인코더/디코더. 디코딩은 파일 전체를 검증하며, 이상이 있으면 예외로 알린다.
+ *
+ * 형식 버전: 2 = 알림 시각 여러 개(`times`)·메모(`memo`)·기록의 회차 시각(`slot`).
+ * 1 = 할 일당 알림 시각 하나(`hour`/`minute`), 메모와 회차 시각 없음 — 읽을 수만 있다.
+ */
 object BackupCodec {
     private const val APP_ID = "check_todo"
-    private const val FORMAT_VERSION = 1
+    private const val FORMAT_VERSION = 2
 
     fun encode(snapshot: BackupSnapshot, exportedAt: Long): String = JSONObject()
         .put("app", APP_ID)
@@ -34,8 +39,8 @@ object BackupCodec {
                         .put("repeatType", it.repeatType.name)
                         .put("weekDays", it.weekDays)
                         .put("monthDay", it.monthDay)
-                        .put("hour", it.hour)
-                        .put("minute", it.minute)
+                        .put("times", JSONArray(it.times))
+                        .put("memo", it.memo)
                         .put("enabled", it.enabled),
                 )
             }
@@ -46,6 +51,7 @@ object BackupCodec {
                     JSONObject()
                         .put("taskId", it.taskId)
                         .put("epochDay", it.epochDay)
+                        .put("slot", it.slot)
                         .put("status", it.status.name)
                         .put("loggedAt", it.loggedAt),
                 )
@@ -62,7 +68,7 @@ object BackupCodec {
         }
         require(root.optString("app") == APP_ID) { "이 앱의 백업 파일이 아니에요." }
         val version = root.optInt("formatVersion", -1)
-        require(version == FORMAT_VERSION) { "지원하지 않는 백업 버전이에요: $version" }
+        require(version in 1..FORMAT_VERSION) { "지원하지 않는 백업 버전이에요: $version" }
 
         val categories = root.getJSONArray("categories").objects().map {
             Category(id = it.getLong("id"), name = it.getString("name"), color = it.getInt("color"))
@@ -75,15 +81,23 @@ object BackupCodec {
                 repeatType = enumValue<RepeatType>(it.getString("repeatType")),
                 weekDays = it.getInt("weekDays"),
                 monthDay = it.getInt("monthDay"),
-                hour = it.getInt("hour"),
-                minute = it.getInt("minute"),
+                times = if (version == 1) listOf(legacyTime(it)) else it.getJSONArray("times").ints(),
+                memo = if (version == 1) "" else it.getString("memo"),
                 enabled = it.getBoolean("enabled"),
             )
         }
+        val firstTimeByTask = tasks.associate { it.id to it.times.firstOrNull() }
         val logs = root.getJSONArray("logs").objects().map {
+            val taskId = it.getLong("taskId")
             TaskLog(
-                taskId = it.getLong("taskId"),
+                taskId = taskId,
                 epochDay = it.getLong("epochDay"),
+                // v1 은 할 일당 시각이 하나였으므로 기록의 회차 시각은 그 시각이다
+                slot = if (version == 1) {
+                    requireNotNull(firstTimeByTask[taskId]) { "수행 기록이 존재하지 않는 할 일을 가리켜요." }
+                } else {
+                    it.getInt("slot")
+                },
                 status = enumValue<LogStatus>(it.getString("status")),
                 loggedAt = it.getLong("loggedAt"),
             )
@@ -92,25 +106,39 @@ object BackupCodec {
         return BackupSnapshot(categories, tasks, logs)
     }
 
+    private fun legacyTime(task: JSONObject): Int {
+        val hour = task.getInt("hour")
+        val minute = task.getInt("minute")
+        require(hour in 0..23 && minute in 0..59) { "'${task.getString("title")}' 의 알림 시각이 올바르지 않아요." }
+        return hour * 60 + minute
+    }
+
     private fun validate(categories: List<Category>, tasks: List<RoutineTask>, logs: List<TaskLog>) {
         require(categories.map { it.id }.toSet().size == categories.size) { "카테고리 id 가 중복돼요." }
         require(categories.map { it.name }.toSet().size == categories.size) { "카테고리 이름이 중복돼요." }
         require(tasks.map { it.id }.toSet().size == tasks.size) { "할 일 id 가 중복돼요." }
-        require(logs.map { it.taskId to it.epochDay }.toSet().size == logs.size) { "수행 기록이 중복돼요." }
+        require(logs.map { Triple(it.taskId, it.epochDay, it.slot) }.toSet().size == logs.size) { "수행 기록이 중복돼요." }
 
         val categoryIds = categories.map { it.id }.toSet()
         val taskIds = tasks.map { it.id }.toSet()
         tasks.forEach {
             require(it.categoryId in categoryIds) { "'${it.title}' 의 카테고리가 백업에 없어요." }
-            require(it.hour in 0..23 && it.minute in 0..59) { "'${it.title}' 의 알림 시각이 올바르지 않아요." }
+            require(it.times.isNotEmpty() && it.times.all { slot -> slot in 0..1439 } && it.times == it.times.distinct().sorted()) {
+                "'${it.title}' 의 알림 시각이 올바르지 않아요."
+            }
             require(it.monthDay in 1..31) { "'${it.title}' 의 매월 일자가 올바르지 않아요." }
             require(it.weekDays in 0..0b1111111) { "'${it.title}' 의 요일 값이 올바르지 않아요." }
             require(it.repeatType != RepeatType.WEEKLY || it.weekDays != 0) { "'${it.title}' 의 반복 요일이 비어 있어요." }
         }
-        logs.forEach { require(it.taskId in taskIds) { "수행 기록이 존재하지 않는 할 일을 가리켜요." } }
+        logs.forEach {
+            require(it.taskId in taskIds) { "수행 기록이 존재하지 않는 할 일을 가리켜요." }
+            require(it.slot in 0..1439) { "수행 기록의 시각이 올바르지 않아요." }
+        }
     }
 
     private fun JSONArray.objects(): List<JSONObject> = List(length()) { getJSONObject(it) }
+
+    private fun JSONArray.ints(): List<Int> = List(length()) { getInt(it) }
 
     private inline fun <reified E : Enum<E>> enumValue(name: String): E =
         enumValues<E>().firstOrNull { it.name == name }
