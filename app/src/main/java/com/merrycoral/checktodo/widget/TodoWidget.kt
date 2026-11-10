@@ -44,11 +44,11 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val DATE_FORMAT = DateTimeFormatter.ofPattern("M월 d일 (E)", Locale.KOREAN)
+internal val DATE_FORMAT = DateTimeFormatter.ofPattern("M월 d일 (E)", Locale.KOREAN)
 
-private val BackgroundColor = ColorProvider(day = Color.White, night = Color(0xFF1F1F1F))
-private val TextColor = ColorProvider(day = Color(0xFF1C1B1F), night = Color(0xFFE6E1E5))
-private val MutedColor = ColorProvider(day = Color(0xFF6B6B6B), night = Color(0xFFA0A0A0))
+internal val BackgroundColor = ColorProvider(day = Color.White, night = Color(0xFF1F1F1F))
+internal val TextColor = ColorProvider(day = Color(0xFF1C1B1F), night = Color(0xFFE6E1E5))
+internal val MutedColor = ColorProvider(day = Color(0xFF6B6B6B), night = Color(0xFFA0A0A0))
 
 val TaskIdKey = ActionParameters.Key<Long>("task_id")
 val EpochDayKey = ActionParameters.Key<Long>("epoch_day")

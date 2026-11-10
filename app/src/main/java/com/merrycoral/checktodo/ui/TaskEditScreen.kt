@@ -54,6 +54,7 @@ import com.merrycoral.checktodo.data.RepeatType
 import com.merrycoral.checktodo.data.RoutineTask
 import com.merrycoral.checktodo.data.WEEKDAY_LABELS
 import com.merrycoral.checktodo.data.slotLabel
+import java.time.LocalDate
 
 private val REPEAT_LABELS = mapOf(
     RepeatType.DAILY to "매일",
@@ -248,6 +249,7 @@ fun TaskEditScreen(
                             weekDays = if (repeatType == RepeatType.WEEKLY) weekDays else 0,
                             monthDay = monthDay,
                             times = times,
+                            startEpochDay = task?.startEpochDay ?: LocalDate.now().toEpochDay(),
                             memo = memo.trim(),
                             enabled = task?.enabled ?: true,
                         ),
