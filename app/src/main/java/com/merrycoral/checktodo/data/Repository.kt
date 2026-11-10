@@ -5,6 +5,7 @@ import androidx.glance.appwidget.updateAll
 import androidx.room.withTransaction
 import com.merrycoral.checktodo.schedule.AlarmScheduler
 import com.merrycoral.checktodo.schedule.NotificationHelper
+import com.merrycoral.checktodo.widget.TodoSmallWidget
 import com.merrycoral.checktodo.widget.TodoWidget
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
@@ -22,6 +23,7 @@ class Repository(
     fun observeTasksWithCategory(): Flow<List<TaskWithCategory>> = db.taskDao().observeAllWithCategory()
     fun observeCategories(): Flow<List<Category>> = db.categoryDao().observeAll()
     fun observeLogs(epochDay: Long): Flow<List<TaskLog>> = db.logDao().observeByDay(epochDay)
+    fun observeAllLogs(): Flow<List<TaskLog>> = db.logDao().observeAll()
 
     fun canScheduleExactAlarms(): Boolean = scheduler.canScheduleExact()
 
@@ -61,11 +63,15 @@ class Repository(
         refreshWidgets()
     }
 
-    /** 이미 삭제된 할 일(오래된 알림·위젯의 버튼)에 대한 기록 요청은 할 일이 없으므로 무시한다. */
+    /**
+     * 회차를 수행/건너뛰기로 기록한다. 이미 삭제된 할 일(오래된 알림·위젯의 버튼)에 대한 요청은 무시한다.
+     * 알림은 할 일+시각마다 하나라 날짜를 구분하지 못하므로, 오늘 회차를 기록할 때만 알림을 닫는다
+     * (지난 날 기록을 고칠 때 오늘 알림이 닫히지 않도록). 알림 버튼은 ActionReceiver 가 직접 닫는다.
+     */
     suspend fun setLog(taskId: Long, epochDay: Long, slot: Int, status: LogStatus) {
         if (db.taskDao().getById(taskId) == null) return
         db.logDao().upsert(TaskLog(taskId, epochDay, slot, status, System.currentTimeMillis()))
-        NotificationHelper.cancel(context, taskId, slot)
+        if (epochDay == LocalDate.now().toEpochDay()) NotificationHelper.cancel(context, taskId, slot)
         refreshWidgets()
     }
 
@@ -212,5 +218,8 @@ class Repository(
         NotificationHelper.show(context, task, category.name, epochDay, slot)
     }
 
-    private suspend fun refreshWidgets() = TodoWidget().updateAll(context)
+    private suspend fun refreshWidgets() {
+        TodoWidget().updateAll(context)
+        TodoSmallWidget().updateAll(context)
+    }
 }

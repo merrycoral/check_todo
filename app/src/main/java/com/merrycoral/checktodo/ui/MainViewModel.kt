@@ -9,11 +9,16 @@ import com.merrycoral.checktodo.CheckTodoApp
 import com.merrycoral.checktodo.data.BackupCodec
 import com.merrycoral.checktodo.data.BackupSnapshot
 import com.merrycoral.checktodo.data.Category
+import com.merrycoral.checktodo.data.DayOccurrence
+import com.merrycoral.checktodo.data.LogIndex
 import com.merrycoral.checktodo.data.LogStatus
+import com.merrycoral.checktodo.data.MonthStats
 import com.merrycoral.checktodo.data.RoutineTask
 import com.merrycoral.checktodo.data.TaskWithCategory
 import com.merrycoral.checktodo.data.TodayItem
+import com.merrycoral.checktodo.data.buildMonthStats
 import com.merrycoral.checktodo.data.buildTodayItems
+import com.merrycoral.checktodo.data.occurrencesOn
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -23,12 +28,15 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.YearMonth
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -68,6 +76,55 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         combine(repository.observeTasksWithCategory(), todayLogs, _today) { tasks, logs, today ->
             buildTodayItems(tasks, logs, today)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // ---- 기록(통계/달력) 탭
+
+    /** 1분마다 현재 시각. 기록 화면에서 '예정' → '미처리' → '놓침' 전환을 반영한다. */
+    private val now: StateFlow<LocalDateTime> = flow {
+        while (true) {
+            emit(LocalDateTime.now())
+            delay(60_000L - System.currentTimeMillis() % 60_000L)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LocalDateTime.now())
+
+    private val _statsMonth = MutableStateFlow(YearMonth.now())
+    val statsMonth: StateFlow<YearMonth> = _statsMonth
+
+    private val _selectedDate = MutableStateFlow(LocalDate.now())
+    val selectedDate: StateFlow<LocalDate> = _selectedDate
+
+    /** 아직 계산 전이면 null */
+    val monthStats: StateFlow<MonthStats?> =
+        combine(repository.observeTasksWithCategory(), repository.observeAllLogs(), _statsMonth, now) { tasks, logs, month, time ->
+            buildMonthStats(month, tasks, logs, time)
+        }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val selectedDayOccurrences: StateFlow<List<DayOccurrence>> =
+        combine(repository.observeTasksWithCategory(), repository.observeAllLogs(), _selectedDate, now) { tasks, logs, date, time ->
+            occurrencesOn(date, tasks, LogIndex(logs), time)
+        }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** 달을 바꾸면 그 달의 오늘(이번 달) 또는 1일을 선택한다. */
+    fun showMonth(month: YearMonth) {
+        _statsMonth.value = month
+        val today = LocalDate.now()
+        _selectedDate.value = if (YearMonth.from(today) == month) today else month.atDay(1)
+    }
+
+    fun selectDate(date: LocalDate) {
+        _selectedDate.value = date
+    }
+
+    /** 기록 화면에서 [date] 의 회차 기록을 바꾼다. [status] 가 null 이면 기록을 지운다(미처리). */
+    fun setOccurrenceStatus(occurrence: DayOccurrence, date: LocalDate, status: LogStatus?) {
+        viewModelScope.launch {
+            if (status == null) {
+                repository.clearLog(occurrence.task.id, date.toEpochDay(), occurrence.slot)
+            } else {
+                repository.setLog(occurrence.task.id, date.toEpochDay(), occurrence.slot, status)
+            }
+        }
+    }
 
     init {
         // 앱을 켜 둔 채 자정이 지나도 '오늘'이 바뀌도록 한다.

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
@@ -47,6 +48,11 @@ import java.time.LocalDate
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
+private const val TAB_TODAY = 0
+private const val TAB_STATS = 1
+private const val TAB_TASKS = 2
+private const val TAB_SETTINGS = 3
+
 @Composable
 fun AppRoot(viewModel: MainViewModel) {
     val context = LocalContext.current
@@ -59,8 +65,11 @@ fun AppRoot(viewModel: MainViewModel) {
     val notificationsAllowed by viewModel.notificationsAllowed.collectAsStateWithLifecycle()
     val backupMessage by viewModel.backupMessage.collectAsStateWithLifecycle()
     val pendingRestore by viewModel.pendingRestore.collectAsStateWithLifecycle()
+    val monthStats by viewModel.monthStats.collectAsStateWithLifecycle()
+    val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
+    val selectedDayOccurrences by viewModel.selectedDayOccurrences.collectAsStateWithLifecycle()
 
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var tab by rememberSaveable { mutableIntStateOf(TAB_TODAY) }
     var editorOpen by rememberSaveable { mutableStateOf(false) }
     var categoryColorsOpen by rememberSaveable { mutableStateOf(false) }
     // 0 = 새 할 일
@@ -120,27 +129,33 @@ fun AppRoot(viewModel: MainViewModel) {
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
-                    selected = tab == 0,
-                    onClick = { tab = 0 },
+                    selected = tab == TAB_TODAY,
+                    onClick = { tab = TAB_TODAY },
                     icon = { Icon(Icons.Default.Check, contentDescription = null) },
                     label = { Text("오늘") },
                 )
                 NavigationBarItem(
-                    selected = tab == 1,
-                    onClick = { tab = 1 },
+                    selected = tab == TAB_STATS,
+                    onClick = { tab = TAB_STATS },
+                    icon = { Icon(Icons.Default.DateRange, contentDescription = null) },
+                    label = { Text("기록") },
+                )
+                NavigationBarItem(
+                    selected = tab == TAB_TASKS,
+                    onClick = { tab = TAB_TASKS },
                     icon = { Icon(Icons.Default.Edit, contentDescription = null) },
                     label = { Text("할 일 관리") },
                 )
                 NavigationBarItem(
-                    selected = tab == 2,
-                    onClick = { tab = 2 },
+                    selected = tab == TAB_SETTINGS,
+                    onClick = { tab = TAB_SETTINGS },
                     icon = { Icon(Icons.Default.Settings, contentDescription = null) },
                     label = { Text("설정") },
                 )
             }
         },
         floatingActionButton = {
-            if (tab == 1) {
+            if (tab == TAB_TASKS) {
                 ExtendedFloatingActionButton(
                     onClick = {
                         editingTaskId = 0L
@@ -175,7 +190,7 @@ fun AppRoot(viewModel: MainViewModel) {
                 )
             }
             when (tab) {
-                0 -> TodayScreen(
+                TAB_TODAY -> TodayScreen(
                     items = todayItems,
                     categories = categories,
                     today = today,
@@ -183,7 +198,16 @@ fun AppRoot(viewModel: MainViewModel) {
                     onSkip = viewModel::skip,
                     onUndo = viewModel::undo,
                 )
-                2 -> SettingsScreen(
+                TAB_STATS -> StatsScreen(
+                    stats = monthStats,
+                    selectedDate = selectedDate,
+                    occurrences = selectedDayOccurrences,
+                    today = today,
+                    onShowMonth = viewModel::showMonth,
+                    onSelectDate = viewModel::selectDate,
+                    onSetStatus = { occurrence, status -> viewModel.setOccurrenceStatus(occurrence, selectedDate, status) },
+                )
+                TAB_SETTINGS -> SettingsScreen(
                     backupMessage = backupMessage,
                     onExport = { exportLauncher.launch("check_todo_backup_${LocalDate.now()}.json") },
                     onRestore = { restoreLauncher.launch(arrayOf("*/*")) },

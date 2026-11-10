@@ -3,6 +3,7 @@ package com.merrycoral.checktodo.data
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import java.time.LocalDate
 
 class BackupCodecTest {
     private val snapshot = BackupSnapshot(
@@ -16,6 +17,7 @@ class BackupCodecTest {
                 weekDays = 0b0010101,
                 monthDay = 1,
                 times = listOf(8 * 60, 20 * 60 + 30),
+                startEpochDay = 19990,
                 memo = "비타민D 1정\n식후",
                 enabled = true,
             ),
@@ -34,6 +36,26 @@ class BackupCodecTest {
     }
 
     @Test
+    fun `version 2 backups get the earliest log day or the restore day as start date`() {
+        val v2 = """
+            {"app":"check_todo","formatVersion":2,"exportedAt":1,
+             "categories":[{"id":1,"name":"건강","color":-12345}],
+             "tasks":[
+               {"id":5,"title":"기록 있음","categoryId":1,"repeatType":"DAILY","weekDays":0,"monthDay":1,
+                "times":[480],"memo":"","enabled":true},
+               {"id":6,"title":"기록 없음","categoryId":1,"repeatType":"DAILY","weekDays":0,"monthDay":1,
+                "times":[480],"memo":"","enabled":true}],
+             "logs":[{"taskId":5,"epochDay":20005,"slot":480,"status":"DONE","loggedAt":9},
+                     {"taskId":5,"epochDay":20001,"slot":480,"status":"SKIPPED","loggedAt":8}]}
+        """.trimIndent()
+
+        val decoded = BackupCodec.decode(v2, today = LocalDate.ofEpochDay(20010))
+
+        assertEquals(20001L, decoded.tasks.first { it.id == 5L }.startEpochDay)
+        assertEquals(20010L, decoded.tasks.first { it.id == 6L }.startEpochDay)
+    }
+
+    @Test
     fun `version 1 backups import as single time tasks`() {
         val v1 = """
             {"app":"check_todo","formatVersion":1,"exportedAt":1,
@@ -43,9 +65,10 @@ class BackupCodecTest {
              "logs":[{"taskId":5,"epochDay":20000,"status":"DONE","loggedAt":9}]}
         """.trimIndent()
 
-        val decoded = BackupCodec.decode(v1)
+        val decoded = BackupCodec.decode(v1, today = LocalDate.ofEpochDay(20010))
 
         assertEquals(listOf(7 * 60 + 45), decoded.tasks.single().times)
+        assertEquals(20000L, decoded.tasks.single().startEpochDay)
         assertEquals("", decoded.tasks.single().memo)
         assertEquals(7 * 60 + 45, decoded.logs.single().slot)
     }

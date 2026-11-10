@@ -9,10 +9,11 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import java.time.LocalDate
 
 @Database(
     entities = [Category::class, RoutineTask::class, TaskLog::class, PendingAlarm::class],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -132,9 +133,24 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v4 → v5: 할 일의 시작일(startEpochDay) 추가. 기존 할 일은 만든 날을 알 수 없으므로
+         * 가장 이른 수행 기록의 날짜를, 기록이 없으면 업데이트한 날(오늘)을 시작일로 둔다.
+         */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                val today = LocalDate.now().toEpochDay()
+                db.execSQL("ALTER TABLE `tasks` ADD COLUMN `startEpochDay` INTEGER NOT NULL DEFAULT $today")
+                db.execSQL(
+                    "UPDATE `tasks` SET `startEpochDay` = MIN($today, " +
+                        "COALESCE((SELECT MIN(`epochDay`) FROM `task_logs` WHERE `taskId` = `tasks`.`id`), $today))",
+                )
+            }
+        }
+
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "check_todo.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         CategoryPalette.DEFAULT_CATEGORIES.forEach { (name, color) ->
