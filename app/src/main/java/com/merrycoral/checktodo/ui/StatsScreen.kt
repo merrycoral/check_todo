@@ -44,6 +44,7 @@ import com.merrycoral.checktodo.data.DaySummary
 import com.merrycoral.checktodo.data.LogStatus
 import com.merrycoral.checktodo.data.MonthStats
 import com.merrycoral.checktodo.data.OccurrenceState
+import com.merrycoral.checktodo.data.SelectedDay
 import com.merrycoral.checktodo.data.TaskStat
 import com.merrycoral.checktodo.data.WEEKDAY_LABELS
 import com.merrycoral.checktodo.data.slotLabel
@@ -64,7 +65,7 @@ private val DAY_FORMAT = DateTimeFormatter.ofPattern("M월 d일 (E)", Locale.KOR
 fun StatsScreen(
     stats: MonthStats?,
     selectedDate: LocalDate,
-    occurrences: List<DayOccurrence>,
+    day: SelectedDay?,
     today: LocalDate,
     onShowMonth: (YearMonth) -> Unit,
     onSelectDate: (LocalDate) -> Unit,
@@ -72,7 +73,6 @@ fun StatsScreen(
     modifier: Modifier = Modifier,
 ) {
     if (stats == null) return
-    val editable = selectedDate <= today
 
     LazyColumn(
         modifier = modifier,
@@ -90,18 +90,22 @@ fun StatsScreen(
         item { SummaryRow(stats) }
         item { CalendarGrid(stats, selectedDate, today, onSelectDate) }
         item { Legend() }
-        item {
-            Text(
-                selectedDate.format(DAY_FORMAT),
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-        }
-        if (occurrences.isEmpty()) {
-            item { Text("이날은 할 일이 없어요.", style = MaterialTheme.typography.bodyMedium) }
-        }
-        items(occurrences, key = { "${it.task.id}:${it.slot}" }) { occurrence ->
-            OccurrenceRow(occurrence, editable, onSetStatus)
+        // 제목·목록·수정 가능 여부를 모두 같은 SelectedDay 에서 그려, 날짜를 바꾼 직후에도 서로 어긋나지 않게 한다
+        if (day != null) {
+            val editable = day.date <= today
+            item {
+                Text(
+                    day.date.format(DAY_FORMAT),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+            if (day.occurrences.isEmpty()) {
+                item { Text("이날은 할 일이 없어요.", style = MaterialTheme.typography.bodyMedium) }
+            }
+            items(day.occurrences, key = { "${it.task.id}:${it.slot}" }) { occurrence ->
+                OccurrenceRow(occurrence, editable, onSetStatus)
+            }
         }
         if (stats.perTask.isNotEmpty()) {
             item {

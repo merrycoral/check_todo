@@ -12,14 +12,19 @@ import java.time.YearMonth
  */
 enum class OccurrenceState { DONE, SKIPPED, PENDING, MISSED, UPCOMING }
 
-/** 특정 날짜의 회차 하나와 그 상태 */
+/** 특정 날짜([date])의 회차 하나와 그 상태 */
 data class DayOccurrence(
+    val date: LocalDate,
     val task: RoutineTask,
     val slot: Int,
     val categoryName: String,
     val categoryColor: Int,
     val state: OccurrenceState,
 )
+
+/** 하루의 회차 상태별 개수 */
+/** 기록 화면에서 선택한 날짜와 그날의 회차. 제목과 목록이 항상 같은 날짜를 가리키도록 함께 다룬다. */
+data class SelectedDay(val date: LocalDate, val occurrences: List<DayOccurrence>)
 
 /** 하루의 회차 상태별 개수 */
 data class DaySummary(
@@ -85,7 +90,7 @@ fun occurrencesOn(date: LocalDate, tasks: List<TaskWithCategory>, logs: LogIndex
         .filter { it.task.enabled && epochDay >= it.task.startEpochDay && it.task.occursOn(date) }
         .flatMap { row ->
             row.task.times.map { slot ->
-                DayOccurrence(row.task, slot, row.categoryName, row.categoryColor, stateOf(row.task.id, date, slot, logs, now))
+                DayOccurrence(date, row.task, slot, row.categoryName, row.categoryColor, stateOf(row.task.id, date, slot, logs, now))
             }
         }
         .sortedWith(compareBy({ it.slot }, { it.task.id }))

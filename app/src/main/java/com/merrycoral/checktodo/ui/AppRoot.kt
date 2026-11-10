@@ -65,9 +65,6 @@ fun AppRoot(viewModel: MainViewModel) {
     val notificationsAllowed by viewModel.notificationsAllowed.collectAsStateWithLifecycle()
     val backupMessage by viewModel.backupMessage.collectAsStateWithLifecycle()
     val pendingRestore by viewModel.pendingRestore.collectAsStateWithLifecycle()
-    val monthStats by viewModel.monthStats.collectAsStateWithLifecycle()
-    val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
-    val selectedDayOccurrences by viewModel.selectedDayOccurrences.collectAsStateWithLifecycle()
 
     var tab by rememberSaveable { mutableIntStateOf(TAB_TODAY) }
     var editorOpen by rememberSaveable { mutableStateOf(false) }
@@ -198,15 +195,21 @@ fun AppRoot(viewModel: MainViewModel) {
                     onSkip = viewModel::skip,
                     onUndo = viewModel::undo,
                 )
-                TAB_STATS -> StatsScreen(
-                    stats = monthStats,
-                    selectedDate = selectedDate,
-                    occurrences = selectedDayOccurrences,
-                    today = today,
-                    onShowMonth = viewModel::showMonth,
-                    onSelectDate = viewModel::selectDate,
-                    onSetStatus = { occurrence, status -> viewModel.setOccurrenceStatus(occurrence, selectedDate, status) },
-                )
+                TAB_STATS -> {
+                    // 통계는 이 탭을 볼 때만 구독한다(1분마다 전체 기록으로 다시 계산하므로)
+                    val monthStats by viewModel.monthStats.collectAsStateWithLifecycle()
+                    val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
+                    val selectedDay by viewModel.selectedDay.collectAsStateWithLifecycle()
+                    StatsScreen(
+                        stats = monthStats,
+                        selectedDate = selectedDate,
+                        day = selectedDay,
+                        today = today,
+                        onShowMonth = viewModel::showMonth,
+                        onSelectDate = viewModel::selectDate,
+                        onSetStatus = viewModel::setOccurrenceStatus,
+                    )
+                }
                 TAB_SETTINGS -> SettingsScreen(
                     backupMessage = backupMessage,
                     onExport = { exportLauncher.launch("check_todo_backup_${LocalDate.now()}.json") },

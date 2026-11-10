@@ -14,6 +14,7 @@ import com.merrycoral.checktodo.data.LogIndex
 import com.merrycoral.checktodo.data.LogStatus
 import com.merrycoral.checktodo.data.MonthStats
 import com.merrycoral.checktodo.data.RoutineTask
+import com.merrycoral.checktodo.data.SelectedDay
 import com.merrycoral.checktodo.data.TaskWithCategory
 import com.merrycoral.checktodo.data.TodayItem
 import com.merrycoral.checktodo.data.buildMonthStats
@@ -99,10 +100,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             buildMonthStats(month, tasks, logs, time)
         }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    val selectedDayOccurrences: StateFlow<List<DayOccurrence>> =
+    /** 선택한 날짜의 회차. 날짜를 바꾼 직후 계산이 끝나기 전에는 이전 날짜의 값이 남아 있으므로 날짜와 함께 둔다. */
+    val selectedDay: StateFlow<SelectedDay?> =
         combine(repository.observeTasksWithCategory(), repository.observeAllLogs(), _selectedDate, now) { tasks, logs, date, time ->
-            occurrencesOn(date, tasks, LogIndex(logs), time)
-        }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+            SelectedDay(date, occurrencesOn(date, tasks, LogIndex(logs), time))
+        }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     /** 달을 바꾸면 그 달의 오늘(이번 달) 또는 1일을 선택한다. */
     fun showMonth(month: YearMonth) {
@@ -115,13 +117,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _selectedDate.value = date
     }
 
-    /** 기록 화면에서 [date] 의 회차 기록을 바꾼다. [status] 가 null 이면 기록을 지운다(미처리). */
-    fun setOccurrenceStatus(occurrence: DayOccurrence, date: LocalDate, status: LogStatus?) {
+    /** 기록 화면에서 회차 기록을 바꾼다(회차 자신의 날짜에). [status] 가 null 이면 기록을 지운다(미처리). */
+    fun setOccurrenceStatus(occurrence: DayOccurrence, status: LogStatus?) {
+        val epochDay = occurrence.date.toEpochDay()
         viewModelScope.launch {
             if (status == null) {
-                repository.clearLog(occurrence.task.id, date.toEpochDay(), occurrence.slot)
+                repository.clearLog(occurrence.task.id, epochDay, occurrence.slot)
             } else {
-                repository.setLog(occurrence.task.id, date.toEpochDay(), occurrence.slot, status)
+                repository.setLog(occurrence.task.id, epochDay, occurrence.slot, status)
             }
         }
     }

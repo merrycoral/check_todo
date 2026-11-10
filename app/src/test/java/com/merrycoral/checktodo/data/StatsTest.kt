@@ -55,6 +55,8 @@ class StatsTest {
         assertEquals(listOf(OccurrenceState.SKIPPED, OccurrenceState.DONE), states(today, tasks, logs, now))
         // 미래 날짜는 예정
         assertEquals(listOf(OccurrenceState.UPCOMING, OccurrenceState.UPCOMING), states(today.plusDays(1), tasks, emptyList(), now))
+        // 회차는 자기 날짜를 가진다 (기록 화면에서 이 날짜로 저장)
+        assertTrue(occurrencesOn(yesterday, tasks, LogIndex(emptyList()), now).all { it.date == yesterday })
     }
 
     @Test
