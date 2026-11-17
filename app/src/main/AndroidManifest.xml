@@ -49,13 +49,27 @@
         <!-- 홈 화면 위젯: 오늘 할 일 + 수행/미수행 체크 -->
         <receiver
             android:name=".widget.TodoWidgetReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:label="@string/widget_label">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/todo_widget_info" />
+        </receiver>
+
+        <!-- 2x2 소형 위젯: 진행률 + 아직 안 한 회차만 -->
+        <receiver
+            android:name=".widget.TodoSmallWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_small_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/todo_small_widget_info" />
         </receiver>
     </application>
 </manifest>

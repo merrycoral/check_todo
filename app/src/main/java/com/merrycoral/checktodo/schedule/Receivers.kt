@@ -40,8 +40,14 @@ class ActionReceiver : BroadcastReceiver() {
         val action = intent.action
         runAsync(context) { app ->
             when (action) {
-                ACTION_DONE -> app.repository.setLog(taskId, epochDay, slot, LogStatus.DONE)
-                ACTION_SKIP -> app.repository.setLog(taskId, epochDay, slot, LogStatus.SKIPPED)
+                ACTION_DONE -> {
+                    app.repository.setLog(taskId, epochDay, slot, LogStatus.DONE)
+                    NotificationHelper.cancel(context, taskId, slot)
+                }
+                ACTION_SKIP -> {
+                    app.repository.setLog(taskId, epochDay, slot, LogStatus.SKIPPED)
+                    NotificationHelper.cancel(context, taskId, slot)
+                }
                 ACTION_SNOOZE -> app.repository.snooze(taskId, epochDay, slot)
                 else -> error("알 수 없는 액션: $action")
             }

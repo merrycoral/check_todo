@@ -22,6 +22,7 @@ class RecurrenceTest {
         weekDays = weekDays,
         monthDay = monthDay,
         times = times,
+        startEpochDay = 0,
     )
 
     private fun at(y: Int, m: Int, d: Int, h: Int, min: Int) = LocalDateTime.of(y, m, d, h, min)

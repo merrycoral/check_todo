@@ -77,6 +77,9 @@ interface LogDao {
     @Query("SELECT * FROM task_logs")
     suspend fun getAll(): List<TaskLog>
 
+    @Query("SELECT * FROM task_logs")
+    fun observeAll(): Flow<List<TaskLog>>
+
     @Insert
     suspend fun insertAll(logs: List<TaskLog>)
 

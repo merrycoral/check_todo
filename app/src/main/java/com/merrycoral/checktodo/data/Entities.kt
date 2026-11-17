@@ -25,6 +25,7 @@ data class Category(
  * - [times]: 하루 중 알림 시각들. 자정부터의 분(0..1439), 오름차순·중복 없음·1개 이상.
  *   시각 하나가 '회차' 하나이며 회차마다 따로 수행/건너뛰기를 기록한다.
  * - [memo]: 용량·카드명 같은 메모. 알림에 함께 표시한다.
+ * - [startEpochDay]: 할 일을 만든 날. 통계에서 이 날 이전의 회차는 '놓침'으로 세지 않는다.
  */
 @Entity(
     tableName = "tasks",
@@ -46,6 +47,7 @@ data class RoutineTask(
     val weekDays: Int = 0,
     val monthDay: Int = 1,
     val times: List<Int>,
+    val startEpochDay: Long,
     val memo: String = "",
     val enabled: Boolean = true,
 )
